@@ -1,4 +1,4 @@
 line 1
 line 2
 ecuation 1
-eecuation 2
+eecuaion 2
