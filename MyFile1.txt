@@ -1,4 +1,4 @@
-line 1
+lie 1
 line 2
 ecuation 1
 encuaion 2
