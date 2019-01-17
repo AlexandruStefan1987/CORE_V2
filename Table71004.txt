@@ -5,7 +5,7 @@ OBJECT Table 71004 Documentation OneNav DM
     Date=21/11/18;
     Time=10:08:53;
     Modified=Yes;
-    Version List=DeliveryTool;
+    Version List=DeliveryTool,DEV_V1;
   }
   PROPERTIES
   {
@@ -1572,6 +1572,8 @@ OBJECT Table 71004 Documentation OneNav DM
       //* @r W1IBM.SAL-181121 @v 22508 @m 1 @s Issue with the delivery tool V2
           @c Modified function
             @c DeleteRecFromRemovedObj */
+      +----------------------------------------------------------------------------------------------------------------------------------+
+      //* @r W1IBM.SAL-181121 @v 22508 @m 1 @s DEV_V1 */
       +----------------------------------------------------------------------------------------------------------------------------------+
     }
     END.
