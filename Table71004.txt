@@ -1,0 +1,1580 @@
+OBJECT Table 71004 Documentation OneNav DM
+{
+  OBJECT-PROPERTIES
+  {
+    Date=21/11/18;
+    Time=10:08:53;
+    Modified=Yes;
+    Version List=DeliveryTool;
+  }
+  PROPERTIES
+  {
+    Permissions=TableData 95999=rimd;
+    OnInsert=VAR
+               lDatabaseDM@1000000000 : Record 71000;
+             BEGIN
+               IF Doc.FINDLAST THEN
+                 "Entry No.":= Doc."Entry No." + 1
+               ELSE
+                 "Entry No.":=1;
+             END;
+
+    LookupPageID=Page71008;
+    DrillDownPageID=Page71008;
+  }
+  FIELDS
+  {
+    { 1   ;   ;Entry No.           ;Integer        }
+    { 2   ;   ;Text                ;Text250        }
+    { 3   ;   ;Object Type         ;Option        ;OptionCaptionML=ENU=TableData,Table,Form,Report,Dataport,Codeunit,XMLport,MenuSuite,Page,Query,,,StoredProcedure;
+                                                   OptionString=TableData,Table,Form,Report,Dataport,Codeunit,XMLport,MenuSuite,Page,Query,,,StoredProcedure }
+    { 4   ;   ;Object No.          ;Integer        }
+    { 5   ;   ;Object Name         ;Text30         }
+    { 6   ;   ;Modification No.    ;Code20         }
+    { 7   ;   ;Modification Name   ;Text100        }
+    { 8   ;   ;User ID             ;Text30         }
+    { 9   ;   ;Description         ;Text250        }
+    { 10  ;   ;Date                ;Date           }
+    { 11  ;   ;Change ID           ;Code50        ;Description=@r W1IBM.AKH-130423 @v 4093 }
+    { 12  ;   ;Modify DateTime     ;DateTime      ;Description=@r W1IBM.AKH-130423 @v 4093 }
+    { 13  ;   ;Database Code       ;Code20        ;TableRelation="Database DM".Code }
+    { 14  ;   ;Database filter     ;Code20        ;FieldClass=FlowFilter }
+    { 15  ;   ;Object filter       ;Code50        ;FieldClass=FlowFilter }
+    { 16  ;   ;Nb. Of Occ.         ;Integer       ;FieldClass=FlowField;
+                                                   CalcFormula=Count("Documentation OneNav DM" WHERE (Change ID=FIELD(Change ID),
+                                                                                                      Database Code=FIELD(Database Code))) }
+    { 100 ;   ;Mantis ID           ;Integer        }
+    { 101 ;   ;Status ID           ;Integer       ;FieldClass=FlowField;
+                                                   CalcFormula=Lookup(Mantis."Status Number" WHERE (Mantis ID=FIELD(Change ID)));
+                                                   Editable=No }
+    { 102 ;   ;Status Text         ;Text50        ;FieldClass=FlowField;
+                                                   CalcFormula=Lookup("Mantis Status".Status WHERE (Status Number=FIELD(Status ID))) }
+    { 110 ;   ;No. Of Occ. per Object flow;Integer;FieldClass=FlowField;
+                                                   CalcFormula=Count("Documentation OneNav DM" WHERE (Change ID=FIELD(Change ID),
+                                                                                                      Database Code=FIELD(Database Code),
+                                                                                                      Object Type=FIELD(Object Type),
+                                                                                                      Object No.=FIELD(Object No.)));
+                                                   Description=@r W1IBM.CPA-060515 @v 9750 }
+    { 111 ;   ;No. Of Occ. per Object;Integer     ;Description=@r W1IBM.CPA-060515 @v 9750 }
+    { 120 ;   ;Line Type           ;Option        ;OptionString=Documentation,Code;
+                                                   Description=@r W1IBM.CSO-170426 @v 17262 @m 1 }
+    { 130 ;   ;No. Of Ref. per Object Flow;Integer;FieldClass=FlowField;
+                                                   CalcFormula=Count("Documentation OneNav DM" WHERE (Change ID=FIELD(Change ID),
+                                                                                                      Modification No.=FIELD(Modification No.),
+                                                                                                      Database Code=FIELD(Database Code),
+                                                                                                      Object Type=FIELD(Object Type),
+                                                                                                      Object No.=FIELD(Object No.),
+                                                                                                      Line Type=CONST(Code)));
+                                                   Description=@r W1IBM.CSO-170426 @v 17262 @m 1 }
+    { 140 ;   ;No. Of Ref. per Object;Integer     ;FieldClass=FlowField;
+                                                   CalcFormula=Count("Documentation OneNav DM" WHERE (Change ID=FIELD(Change ID),
+                                                                                                      Database Code=FIELD(Database Code),
+                                                                                                      Object Type=FIELD(Object Type),
+                                                                                                      Object No.=FIELD(Object No.),
+                                                                                                      Line Type=CONST(Code)));
+                                                   Description=@r W1IBM.CSO-170426 @v 17262 @m 1 }
+  }
+  KEYS
+  {
+    {    ;Entry No.,Database Code                 ;Clustered=Yes }
+    {    ;Change ID                                }
+    {    ;Modify DateTime                          }
+    {    ;Object Type,Object No.,Database Code     }
+    {    ;Change ID,Modification No.               }
+    {    ;Change ID,Modification No.,Database Code }
+    {    ;Change ID,Modification No.,Object Type,Object No. }
+    {    ;Change ID,Modification No.,Database Code,Object Type,Object No. }
+  }
+  FIELDGROUPS
+  {
+  }
+  CODE
+  {
+    VAR
+      Doc@1000000000 : Record 71004;
+      Docum@1000000006 : Record 71004;
+      i@1000000005 : Integer;
+      Win@1000000004 : Dialog;
+      InStr@1000000003 : InStream;
+      IsOur@1000000002 : Boolean;
+      ModNo@1000000001 : Code[20];
+      theday@1100409000 : Text[30];
+      themonth@1100409001 : Text[30];
+      theyear@1100409002 : Text[30];
+      gRecDoc@1100409003 : Record 71004;
+      DeliveryMgtSetupDM@1100409004 : Record 71005;
+      Text001@1100409005 : TextConst 'FRA=Setup the "Read Doc. Temp File Name" in the Delivery Management Setup.';
+
+    PROCEDURE Update@1000000001(TyObj@1100409000 : Integer;NoObj@1100409001 : Integer);
+    VAR
+      Object@1000000002 : Record 2000000001;
+      n@1000000001 : Decimal;
+      m@1000000000 : Decimal;
+    BEGIN
+      Docum.DELETEALL;
+      //++@r W1IBM.VTI-150302 @v 9750 @m 1
+      IF GUIALLOWED THEN
+      //--@r W1IBM.VTI-150302 @v 9750 @m 1
+        Win.OPEN('Obect Name #1############\Obect No.  #2############\  @3@@@@@@@@@@@@@@@@@@@@');
+      m := 0;
+      Object.SETFILTER(Type,'<>%1',Object.Type::TableData);
+      //gRecDoc.findlast;
+      IF TyObj<>0 THEN
+        Object.SETFILTER(Type,'=%1',TyObj);
+      IF NoObj<>0 THEN
+        Object.SETFILTER(ID,'=%1',NoObj);
+      IF Object.FINDSET THEN BEGIN
+        n := Object.COUNT;
+        REPEAT
+          //++@r W1IBM.VTI-150302 @v 9750 @m 1
+          IF GUIALLOWED THEN BEGIN
+          //--@r W1IBM.VTI-150302 @v 9750 @m 1
+            Win.UPDATE(1,Object.Name);
+            Win.UPDATE(2,Object.ID);
+            Win.UPDATE(3,ROUND(m / n * 10000,1,'='));
+          //++@r W1IBM.VTI-150302 @v 9750 @m 1
+          END;
+          //--@r W1IBM.VTI-150302 @v 9750 @m 1
+         IsOur := FALSE;
+         ShowObjDoc2(Object);
+         m += 1;
+        UNTIL Object.NEXT = 0;
+      END;
+      //++@r W1IBM.VTI-150302 @v 9750 @m 1
+      IF GUIALLOWED THEN
+      //--@r W1IBM.VTI-150302 @v 9750 @m 1
+        Win.CLOSE;
+    END;
+
+    PROCEDURE ShowObjDoc2@1000000000(ObjRec@1000000000 : Record 2000000001);
+    VAR
+      textTemp@1000 : Text;
+    BEGIN
+      ObjRec.CALCFIELDS("BLOB Reference");
+      ObjRec."BLOB Reference".CREATEINSTREAM(InStr);
+      //++@r W1IBM.CPA-150408 @v 9750 @m 1
+      //FindDoc2(ObjRec,'c:\temp\obj.bin',ObjRec.ID,ObjRec.Type);
+      DeliveryMgtSetupDM.GET;
+      IF DeliveryMgtSetupDM."Read Doc. Temp File Name" <> '' THEN
+        FindDoc2(ObjRec,'c:\temp\' + DeliveryMgtSetupDM."Read Doc. Temp File Name" +'.bin',ObjRec.ID,ObjRec.Type)
+      ELSE
+        ERROR(Text001);
+      //--@r W1IBM.CPA-150408 @v 9750 @m 1
+    END;
+
+    PROCEDURE FindDoc@1000000004(Object@1000000002 : Record 2000000001;FileName@1000000008 : Text[250];IDNo@1000000011 : Integer;IDType@1000000012 : 'TableData,Table,Form,Report,Dataport,Codeunit,XMLport,MenuSuite,Page,Query');
+    VAR
+      F@1000000007 : File;
+      DWORD@1000000006 : Text[4];
+      DocLine@1000000004 : Text[1000];
+      CodeFind@1000000009 : Boolean;
+      IntType@1000000017 : Boolean;
+      TextType@1000000018 : Boolean;
+      Text1@1000000019 : Text[1];
+      i@1000000000 : Integer;
+      NotText@1000000001 : Boolean;
+    BEGIN
+      NotText := TRUE;
+      IntType := FALSE;
+      TextType := FALSE;
+      DocLine := '';
+      F.TEXTMODE := FALSE;
+      F.OPEN(FileName);
+      IF NOT MoveToDocBlock(F) THEN BEGIN
+        F.CLOSE;
+        EXIT;
+      END;
+
+      WHILE TRUE DO BEGIN
+        IF GetNextDWORD(F,DWORD) THEN BEGIN
+          F.CLOSE;
+          EXIT;
+        END;
+        CodeFind:=FALSE;
+        IF (DWORD[2]=101) THEN
+          CASE DWORD[1] OF
+            23{17 65}:
+              IF IntType OR TextType THEN BEGIN
+                IF DocLine <> '' THEN
+                  InsertDocLine(Object,IDNo,IDType,DocLine);
+                DocLine:='';
+                InsertDocLine(Object,IDNo,IDType,DocLine);
+                F.CLOSE;
+                EXIT;
+              END;
+            24{18 65}:
+              BEGIN
+                InsertDocLine(Object,IDNo,IDType,DocLine);
+                DocLine:='';
+                CodeFind:=TRUE;
+                NotText:=TRUE;
+              END;
+            115{73 65}:
+              IF NotText THEN BEGIN
+                IntType:= FALSE;
+                TextType:= TRUE;
+                CodeFind:=TRUE;
+                NotText:=FALSE;
+              END;
+            116{74 65}:
+              IF NotText THEN BEGIN
+                IntType:= TRUE;
+                TextType:= FALSE;
+                CodeFind:=TRUE;
+                NotText:=FALSE;
+              END;
+          END;
+        IF NOT CodeFind THEN
+          FOR i:=1 TO 4 DO
+            CASE DWORD[i] OF
+              0,1:
+                BEGIN
+                  IF (IntType AND (DocLine <> '') AND NOT CodeFind) THEN BEGIN
+                    InsertDocLine(Object,IDNo,IDType,DocLine);
+                    DocLine:='';
+                  END;
+                  IF (DWORD[i] = 0) THEN
+                    CodeFind:=TRUE;
+                END;
+              ELSE
+                BEGIN
+                  IF (((IntType AND (DWORD[i] IN ['0'..'9'])) OR TextType) AND NOT CodeFind) THEN
+                  BEGIN
+                    Text1[1]:=DWORD[i];
+                    IF Text1[1] < ' ' THEN
+                      Text1[1]:=' ';
+                    DocLine:=DocLine+Text1;
+                  END;
+                END;
+            END;
+      END;
+    END;
+
+    PROCEDURE FindDoc2@1000000003(Object@1000000002 : Record 2000000001;FileName@1000000008 : Text[250];IDNo@1000000011 : Integer;IDType@1000000012 : 'TableData,Table,Form,Report,Dataport,Codeunit,XMLport,MenuSuite,Page,Query');
+    VAR
+      DWORD@1000000006 : Text[4];
+      DocLine@1000000004 : Text[1024];
+      CodeFind@1000000009 : Boolean;
+      IntType@1000000017 : Boolean;
+      TextType@1000000018 : Boolean;
+      Text1@1000000019 : Text[1];
+      i@1000000000 : Integer;
+      NotText@1000000001 : Boolean;
+    BEGIN
+      NotText := TRUE;
+      IntType := FALSE;
+      TextType := FALSE;
+      DocLine := '';
+      IF NOT MoveToDocBlock3 THEN
+        EXIT;
+      WHILE TRUE DO BEGIN
+        IF GetNextDWORD2(DWORD) THEN
+          EXIT;
+
+        CodeFind := FALSE;
+        IF DWORD[2] = 101 THEN
+          CASE DWORD[1] OF
+            23{17 65}:
+              IF IntType OR TextType THEN BEGIN
+                IF DocLine <> '' THEN
+                  InsertDocLine(Object,IDNo,IDType,DocLine);
+                DocLine := '';
+                InsertDocLine(Object,IDNo,IDType,DocLine);
+                EXIT;
+              END;
+            24{18 65}:
+              BEGIN
+                InsertDocLine(Object,IDNo,IDType,DocLine);
+                DocLine := '';
+                CodeFind := TRUE;
+                NotText := TRUE;
+              END;
+            115{73 65}:
+              BEGIN
+                IntType := FALSE;
+                TextType := TRUE;
+                CodeFind := TRUE;
+                NotText := FALSE;
+              END;
+            116{74 65}:
+              IF NotText THEN BEGIN
+                IntType := TRUE;
+                TextType := FALSE;
+                CodeFind := TRUE;
+                NotText := FALSE;
+              END;
+          END;
+
+        IF NOT CodeFind THEN
+          FOR i := 1 TO 4 DO
+            CASE DWORD[i] OF
+              0,1:
+                BEGIN
+                  IF (IntType AND (DocLine <> '') AND NOT CodeFind) THEN BEGIN
+                    InsertDocLine(Object,IDNo,IDType,DocLine);
+                    DocLine := '';
+                  END;
+                  IF (DWORD[i] = 0) THEN
+                    CodeFind := TRUE;
+                END;
+              ELSE
+                BEGIN
+                  IF (((IntType AND (DWORD[i] IN ['0'..'9'])) OR TextType) AND NOT CodeFind) THEN
+                  BEGIN
+                    Text1[1] := DWORD[i];
+                    IF Text1[1] < ' ' THEN
+                      Text1[1] := ' ';
+                    IF STRLEN(DocLine) <1000 THEN
+                      DocLine := DocLine + Text1;
+                  END;
+                END;
+            END;
+      END;
+    END;
+
+    PROCEDURE InsertDocLine@1000000002(Object@1000000008 : Record 2000000001;IDNo@1000000001 : Integer;IDType@1000000000 : 'TableData,Table,Form,Report,Dataport,Codeunit,XMLport,MenuSuite,Page,Query';DocT@1000000003 : Text[200]);
+    VAR
+      Date@1000000007 : Date;
+      TempText@1000000006 : Text[250];
+      ChangeID@1000000005 : Text[250];
+      i@1000000004 : Integer;
+      Processed@1000000002 : Boolean;
+      TestID@1100409000 : Integer;
+      ModificationID@1100409001 : Text[30];
+    BEGIN
+      IF DocT <> '' THEN BEGIN
+        Docum.INIT;
+        Docum."Object Type" := IDType;
+        Docum."Object No." := IDNo;
+        Docum."Object Name" := Object.Name;
+        Docum.Text := DocT;
+        //++@r W1IBM.AKH-130423 @v 4093
+        IF STRPOS(Docum.Text,'@v') > 0 THEN BEGIN
+          ChangeID := '';
+          TempText := COPYSTR(Docum.Text,STRPOS(Docum.Text,'@v'),STRLEN(Docum.Text) - STRPOS(Docum.Text,'@v')+1);
+          TempText := DELSTR(TempText,1,2);
+          i := 1;
+          Processed := FALSE;
+          REPEAT
+            IF TempText[i] = ' ' THEN BEGIN
+              IF STRLEN(ChangeID) > 0 THEN
+                Processed := TRUE
+            END ELSE BEGIN
+              IF TempText[i] = '@' THEN
+                Processed := TRUE
+              ELSE
+                ChangeID += FORMAT(TempText[i]);
+            END;
+
+            i += 1;
+            IF i > STRLEN(TempText) THEN
+              Processed := TRUE;
+          UNTIL Processed;
+          Docum."Change ID" := ChangeID;
+        END;
+        Docum."Modify DateTime" := CURRENTDATETIME;
+        //--@r W1IBM.AKH-130423 @v 4093
+        //++@r W1IBM.VTI-150302 @v 9750 @m 1
+        //Docum."Modification No." := ModNo;
+        IF STRPOS(Docum.Text,'@m') > 0 THEN BEGIN
+          ModificationID := '';
+          TempText := COPYSTR(Docum.Text,STRPOS(Docum.Text,'@m'),STRLEN(Docum.Text) - STRPOS(Docum.Text,'@m')+1);
+          TempText := DELSTR(TempText,1,2);
+          i := 1;
+          Processed := FALSE;
+          REPEAT
+            IF TempText[i] = ' ' THEN BEGIN
+              IF STRLEN(ModificationID) > 0 THEN
+                Processed := TRUE
+            END ELSE BEGIN
+              IF TempText[i] = '@' THEN
+                Processed := TRUE
+              ELSE
+                ModificationID += FORMAT(TempText[i]);
+            END;
+
+            i += 1;
+            IF i > STRLEN(TempText) THEN
+              Processed := TRUE;
+          UNTIL Processed;
+          Docum."Modification No." := ModificationID;
+        END;
+        //--@r W1IBM.VTI-150302 @v 9750 @m 1
+        IF (STRPOS(Docum.Text,'@r') > 0) THEN BEGIN
+          IF COPYSTR(Docum.Text,STRPOS(Docum.Text,'@r')+2,1)=' ' THEN
+          BEGIN
+            DocT := COPYSTR(Docum.Text,STRPOS(Docum.Text,'@r')+3,16);
+          END ELSE BEGIN
+            DocT := COPYSTR(Docum.Text,STRPOS(Docum.Text,'@r')+2,16);
+          END;
+          Docum."User ID" := COPYSTR(DocT,7,3);
+          theday:=COPYSTR(DocT,15,2);
+          themonth:=COPYSTR(DocT,13,2);
+          theyear:=COPYSTR(DocT,11,2);
+          IF NOT EVALUATE(Date,theday+themonth+theyear) THEN
+          BEGIN
+            //MESSAGE(FORMAT(DocT));
+            COMMIT;
+            //ERROR(FORMAT(Docum."Object Type")+' '+FORMAT(Docum."Object No."));
+          END;
+          Docum.Date := Date;
+          //Check that we have USERID,Date and Mantis No
+          IF (FORMAT(Docum."User ID")='') OR (FORMAT(Docum.Date)='') OR (FORMAT(Docum."Change ID")='')
+          OR (NOT EVALUATE(TestID,Docum."Change ID"))THEN
+          BEGIN
+            //MESSAGE(Docum.Text);
+            COMMIT;
+            //ERROR('Missing information! '+FORMAT(Docum."Object Type")+' '+FORMAT(Docum."Object No."));
+          END;
+        END;
+
+
+      // IF ((Docum.Text[1] = 'S') AND (Docum.Text[2] = 'D')) OR
+      //    ((Docum.Text[1] = 'S') AND (Docum.Text[2] = 'P')) OR
+      //    ((Docum.Text[1] = 'S') AND (Docum.Text[2] = 'W')) OR
+      //    ((Docum.Text[1] = 'S') AND (Docum.Text[2] = 'M')) OR
+      //    ((Docum.Text[1] = 'A') AND (Docum.Text[2] = 'B') AND (Docum.Text[3] = 'S')) OR
+      //    ((Docum.Text[1] = 'R') AND (Docum.Text[2] = 'O') AND (Docum.Text[3] = 'S')) OR
+      //    ((Docum.Text[1] = 'S') AND (Docum.Text[2] = 'A') AND (Docum.Text[3] = 'S'))
+      // THEN BEGIN
+      //   IsOur := TRUE;
+      //   IF STRPOS(Docum.Text,' ') > 0 THEN
+      //     ModNo := COPYSTR(Docum.Text,1,STRPOS(Docum.Text,' '))
+      //  ELSE
+      //     ModNo := Docum.Text;
+      //   Docum."Modification No." := '';
+      // END;
+      // IF IsOur THEN
+        IF Docum."Change ID" <> '' THEN
+          Docum.INSERT(TRUE)
+        ELSE
+          CLEAR(Docum);
+      END;
+    END;
+
+    PROCEDURE MoveToDocBlock3@1000000012() : Boolean;
+    VAR
+      DWORD@1000000002 : Text[4];
+    BEGIN
+      //++@r W1IBM.CSO-170317 @v 17262 @m 1
+      WHILE TRUE DO
+       BEGIN
+          IF GetNextDWORD2(DWORD) THEN EXIT(FALSE);
+          IF ((DWORD[1] = 69) AND (DWORD[2] = 101)) THEN
+           BEGIN
+            IF GetNextDWORD2(DWORD) THEN EXIT(FALSE);
+            IF ((DWORD[1] = 12) AND (DWORD[2] = 0) AND (DWORD[3] = 0) AND (DWORD[4] = 0)) THEN
+             BEGIN
+              IF GetNextDWORD2(DWORD) THEN EXIT(FALSE);
+              IF ((DWORD[1] = 23) AND (DWORD[2] = 101)) THEN
+               BEGIN
+                IF GetNextDWORD2(DWORD) THEN EXIT(FALSE);
+                IF ((DWORD[1] = 123) AND (DWORD[2] = 101)) THEN
+                 BEGIN
+                  IF GetNextDWORD2(DWORD) THEN EXIT(FALSE);
+                  IF ((DWORD[1] = 0) AND (DWORD[2] = 0) AND (DWORD[3] = 0) AND (DWORD[4] = 0)) THEN
+                   EXIT(TRUE);
+                 END;
+               END;
+             END;
+           END;
+       END;
+      //--@r W1IBM.CSO-170317 @v 17262 @m 1
+    END;
+
+    PROCEDURE MoveToDocBlock2@1000000005() : Boolean;
+    VAR
+      DWORD@1000000002 : Text[4];
+      WeFindSomething@1000000000 : Boolean;
+    BEGIN
+      WeFindSomething := FALSE;
+      WHILE TRUE DO
+       BEGIN
+        IF NOT WeFindSomething THEN
+          IF GetNextDWORD2(DWORD) THEN EXIT(FALSE);
+        IF ({(DWORD[2] = 00) AND} (DWORD[3] = 0) AND (DWORD[4] = 0)) OR
+         ((DWORD[1] = 255) OR (DWORD[2] = 255) OR (DWORD[3] = 255) OR (DWORD[4] = 255)) THEN
+         BEGIN
+          IF GetNextDWORD2(DWORD) THEN EXIT(FALSE);
+          IF ((DWORD[1] = 69) AND (DWORD[2] = 101)) THEN
+           BEGIN
+            IF GetNextDWORD2(DWORD) THEN EXIT(FALSE);
+            IF ((DWORD[1] = 12) AND (DWORD[2] = 0) AND (DWORD[3] = 0) AND (DWORD[4] = 0)) THEN
+             BEGIN
+              IF GetNextDWORD2(DWORD) THEN EXIT(FALSE);
+              IF ((DWORD[1] = 23) AND (DWORD[2] = 101)) THEN
+               BEGIN
+                IF GetNextDWORD2(DWORD) THEN EXIT(FALSE);
+                IF ((DWORD[1] = 123) AND (DWORD[2] = 101)) THEN
+                 BEGIN
+                  IF GetNextDWORD2(DWORD) THEN EXIT(FALSE);
+                  IF ((DWORD[1] = 0) AND (DWORD[2] = 0) AND (DWORD[3] = 0) AND (DWORD[4] = 0)) THEN
+                   EXIT(TRUE);
+                 END;
+               END;
+             END;
+           END ELSE BEGIN
+            IF ({(DWORD[2] = 0) AND} (DWORD[3] = 0) AND (DWORD[4] = 0)) OR
+            ((DWORD[1] = 255) AND (DWORD[2] = 255) AND (DWORD[3] = 255) AND (DWORD[4] = 255)) THEN
+              WeFindSomething := TRUE;
+           END;
+         END ELSE
+          WeFindSomething := FALSE;
+       END;
+    END;
+
+    PROCEDURE MoveToDocBlock@1000000008(VAR F@1000000000 : File) : Boolean;
+    VAR
+      DWORD@1000000002 : Text[4];
+    BEGIN
+      WHILE TRUE DO
+       BEGIN
+          IF GetNextDWORD(F,DWORD) THEN EXIT(FALSE);
+          IF ((DWORD[1] = 69) AND (DWORD[2] = 101)) THEN
+           BEGIN
+            IF GetNextDWORD(F,DWORD) THEN EXIT(FALSE);
+            IF ((DWORD[1] = 12) AND (DWORD[2] = 0) AND (DWORD[3] = 0) AND (DWORD[4] = 0)) THEN
+             BEGIN
+              IF GetNextDWORD(F,DWORD) THEN EXIT(FALSE);
+              IF ((DWORD[1] = 23) AND (DWORD[2] = 101)) THEN
+               BEGIN
+                IF GetNextDWORD(F,DWORD) THEN EXIT(FALSE);
+                IF ((DWORD[1] = 123) AND (DWORD[2] = 101)) THEN
+                 BEGIN
+                  IF GetNextDWORD(F,DWORD) THEN EXIT(FALSE);
+                  IF ((DWORD[1] = 0) AND (DWORD[2] = 0) AND (DWORD[3] = 0) AND (DWORD[4] = 0)) THEN
+                   EXIT(TRUE);
+                 END;
+               END;
+             END;
+           END;
+       END;
+    END;
+
+    PROCEDURE GetNextDWORD@1000000006(VAR F@1000000000 : File;VAR DWORD@1000000001 : Text[4]) : Boolean;
+    VAR
+      I@1000000005 : Integer;
+      Chr@1000000003 : Char;
+      IsEnd@1000000002 : Boolean;
+      DWORD_Ch@1000000004 : ARRAY [4] OF Char;
+    BEGIN
+      IsEnd:=FALSE;
+      FOR I:=1 TO 4 DO
+       BEGIN
+        IsEnd:= F.READ(Chr)=0;
+        //DWORD[I] := Chr;
+        DWORD_Ch[I] := Chr;
+       END;
+       DWORD := FORMAT(DWORD_Ch[1])+ FORMAT(DWORD_Ch[2])+ FORMAT(DWORD_Ch[3])+ FORMAT(DWORD_Ch[4]);
+
+      EXIT(IsEnd);
+    END;
+
+    PROCEDURE GetNextDWORD2@1000000009(VAR DWORD@1000000001 : Text[4]) : Boolean;
+    VAR
+      I@1000000005 : Integer;
+      Chr@1000000003 : Char;
+      IsEnd@1000000002 : Boolean;
+      DWORD_Ch@1000000000 : ARRAY [4] OF Char;
+    BEGIN
+      IsEnd:=FALSE;
+      FOR I:=1 TO 4 DO
+       BEGIN
+        IsEnd:= InStr.READ(Chr)=0;
+        DWORD_Ch[I] := Chr;
+        //MESSAGE(FORMAT(DWORD_Ch[I]));
+       END;
+       DWORD := FORMAT(DWORD_Ch[1])+ FORMAT(DWORD_Ch[2])+ FORMAT(DWORD_Ch[3])+ FORMAT(DWORD_Ch[4]);
+      EXIT(IsEnd);
+    END;
+
+    PROCEDURE UpdateExtObj@1100409000(TyObj@1100409000 : Integer;NoObj@1100409001 : Integer);
+    VAR
+      ExternalObject@1000000002 : Record 71003;
+      n@1000000001 : Decimal;
+      m@1000000000 : Decimal;
+    BEGIN
+      Docum.DELETEALL;
+      //++@r W1IBM.VTI-150302 @v 9750 @m 1
+      IF GUIALLOWED THEN
+      //--@r W1IBM.VTI-150302 @v 9750 @m 1
+        Win.OPEN('Obect Name #1############\Obect No.  #2############\  @3@@@@@@@@@@@@@@@@@@@@');
+      m := 0;
+      //ExternalObject.SETFILTER(Type,'<>%1',ExternalObject.Type::0);
+      IF TyObj<>0 THEN
+        ExternalObject.SETFILTER(Type,'=%1',TyObj);
+      IF NoObj<>0 THEN
+        ExternalObject.SETFILTER(ID,'>=%1',NoObj);
+      IF ExternalObject.FINDSET THEN BEGIN
+        n := ExternalObject.COUNT;
+
+        REPEAT
+          //++@r W1IBM.VTI-150302 @v 9750 @m 1
+          IF GUIALLOWED THEN BEGIN
+          //--@r W1IBM.VTI-150302 @v 9750 @m 1
+            Win.UPDATE(1,ExternalObject.Name);
+            Win.UPDATE(2,ExternalObject.ID);
+            Win.UPDATE(3,ROUND(m / n * 10000,1,'='));
+          //++@r W1IBM.VTI-150302 @v 9750 @m 1
+          END;
+          //--@r W1IBM.VTI-150302 @v 9750 @m 1
+         IsOur := FALSE;
+         ShowExtObjDoc(ExternalObject);
+         m += 1;
+        UNTIL ExternalObject.NEXT = 0;
+      END;
+      //++@r W1IBM.VTI-150302 @v 9750 @m 1
+      IF GUIALLOWED THEN
+      //--@r W1IBM.VTI-150302 @v 9750 @m 1
+        Win.CLOSE;
+    END;
+
+    PROCEDURE ShowExtObjDoc@1100409001(ExtObjRec@1000000000 : Record 71003);
+    BEGIN
+      ExtObjRec.CALCFIELDS("BLOB Reference");
+      ExtObjRec."BLOB Reference".CREATEINSTREAM(InStr);
+      //++@r W1IBM.CPA-150408 @v 9750 @m 1
+      //FindExtDoc(ExtObjRec,'c:\temp\obj.bin',ExtObjRec.ID,ExtObjRec.Type);
+      DeliveryMgtSetupDM.GET;
+      IF DeliveryMgtSetupDM."Read Doc. Temp File Name" <> '' THEN
+        FindExtDoc(ExtObjRec,'c:\temp\' + DeliveryMgtSetupDM."Read Doc. Temp File Name" +'.bin',ExtObjRec.ID,ExtObjRec.Type)
+      ELSE
+        ERROR(Text001);
+      //--@r W1IBM.CPA-150408 @v 9750 @m 1
+    END;
+
+    PROCEDURE FindExtDoc@1100409002(ExtObject@1000000002 : Record 71003;FileName@1000000008 : Text[250];IDNo@1000000011 : Integer;IDType@1000000012 : 'TableData,Table,Form,Report,Dataport,Codeunit,XMLport,MenuSuite,Page,Query');
+    VAR
+      DWORD@1000000006 : Text[4];
+      DocLine@1000000004 : Text[1024];
+      CodeFind@1000000009 : Boolean;
+      IntType@1000000017 : Boolean;
+      TextType@1000000018 : Boolean;
+      Text1@1000000019 : Text[1];
+      i@1000000000 : Integer;
+      NotText@1000000001 : Boolean;
+    BEGIN
+      NotText := TRUE;
+      IntType := FALSE;
+      TextType := FALSE;
+      DocLine := '';
+      IF NOT MoveToDocBlock3 THEN
+        EXIT;
+
+      WHILE TRUE DO BEGIN
+        IF GetNextDWORD2(DWORD) THEN
+          EXIT;
+
+        CodeFind := FALSE;
+        IF DWORD[2] = 101 THEN
+          CASE DWORD[1] OF
+            23{17 65}:
+              IF IntType OR TextType THEN BEGIN
+                IF DocLine <> '' THEN
+                  InsertExtDocLine(ExtObject,IDNo,IDType,DocLine);
+                DocLine := '';
+                InsertExtDocLine(ExtObject,IDNo,IDType,DocLine);
+                EXIT;
+              END;
+            24{18 65}:
+              BEGIN
+                InsertExtDocLine(ExtObject,IDNo,IDType,DocLine);
+                DocLine := '';
+                CodeFind := TRUE;
+                NotText := TRUE;
+              END;
+            115{73 65}:
+              BEGIN
+                IntType := FALSE;
+                TextType := TRUE;
+                CodeFind := TRUE;
+                NotText := FALSE;
+              END;
+            116{74 65}:
+              IF NotText THEN BEGIN
+                IntType := TRUE;
+                TextType := FALSE;
+                CodeFind := TRUE;
+                NotText := FALSE;
+              END;
+          END;
+
+        IF NOT CodeFind THEN
+          FOR i := 1 TO 4 DO
+            CASE DWORD[i] OF
+              0,1:
+                BEGIN
+                  IF (IntType AND (DocLine <> '') AND NOT CodeFind) THEN BEGIN
+                    InsertExtDocLine(ExtObject,IDNo,IDType,DocLine);
+                    DocLine := '';
+                  END;
+                  IF (DWORD[i] = 0) THEN
+                    CodeFind := TRUE;
+                END;
+              ELSE
+                BEGIN
+                  IF (((IntType AND (DWORD[i] IN ['0'..'9'])) OR TextType) AND NOT CodeFind) THEN
+                  BEGIN
+                    Text1[1] := DWORD[i];
+                    IF Text1[1] < ' ' THEN
+                      Text1[1] := ' ';
+                    DocLine := DocLine + Text1;
+                  END;
+                END;
+            END;
+      END;
+    END;
+
+    PROCEDURE InsertExtDocLine@1100409003(ExtObject@1000000008 : Record 71003;IDNo@1000000001 : Integer;IDType@1000000000 : 'TableData,Table,Form,Report,Dataport,Codeunit,XMLport,MenuSuite,Page,Query';DocT@1000000003 : Text[200]);
+    VAR
+      Date@1000000007 : Date;
+      TempText@1000000006 : Text[250];
+      ChangeID@1000000005 : Text[250];
+      i@1000000004 : Integer;
+      Processed@1000000002 : Boolean;
+      TestID@1100409000 : Integer;
+      ModificationID@1100409001 : Text[30];
+    BEGIN
+      IF DocT <> '' THEN BEGIN
+        Docum.INIT;
+        Docum."Object Type" := IDType;
+        Docum."Object No." := IDNo;
+        Docum."Object Name" := ExtObject.Name;
+        Docum.Text := DocT;
+        //++@r W1IBM.AKH-130423 @v 4093
+        IF STRPOS(Docum.Text,'@v') > 0 THEN BEGIN
+          ChangeID := '';
+          TempText := COPYSTR(Docum.Text,STRPOS(Docum.Text,'@v'),STRLEN(Docum.Text) - STRPOS(Docum.Text,'@v')+1);
+          TempText := DELSTR(TempText,1,2);
+          i := 1;
+          Processed := FALSE;
+          REPEAT
+            IF TempText[i] = ' ' THEN BEGIN
+              IF STRLEN(ChangeID) > 0 THEN
+                Processed := TRUE
+            END ELSE BEGIN
+              IF TempText[i] = '@' THEN
+                Processed := TRUE
+              ELSE
+                ChangeID += FORMAT(TempText[i]);
+            END;
+
+            i += 1;
+            IF i > STRLEN(TempText) THEN
+              Processed := TRUE;
+          UNTIL Processed;
+          Docum."Change ID" := ChangeID;
+        END;
+        Docum."Modify DateTime" := CURRENTDATETIME;
+        //--@r W1IBM.AKH-130423 @v 4093
+        //++@r W1IBM.VTI-150302 @v 9750 @m 1
+        //Docum."Modification No." := ModNo;
+        IF STRPOS(Docum.Text,'@m') > 0 THEN BEGIN
+          ModificationID := '';
+          TempText := COPYSTR(Docum.Text,STRPOS(Docum.Text,'@m'),STRLEN(Docum.Text) - STRPOS(Docum.Text,'@m')+1);
+          TempText := DELSTR(TempText,1,2);
+          i := 1;
+          Processed := FALSE;
+          REPEAT
+            IF TempText[i] = ' ' THEN BEGIN
+              IF STRLEN(ModificationID) > 0 THEN
+                Processed := TRUE
+            END ELSE BEGIN
+              IF TempText[i] = '@' THEN
+                Processed := TRUE
+              ELSE
+                ModificationID += FORMAT(TempText[i]);
+            END;
+
+            i += 1;
+            IF i > STRLEN(TempText) THEN
+              Processed := TRUE;
+          UNTIL Processed;
+          Docum."Modification No." := ModificationID;
+        END;
+        //--@r W1IBM.VTI-150302 @v 9750 @m 1
+
+        IF (STRPOS(Docum.Text,'@r') > 0) THEN BEGIN
+          IF COPYSTR(Docum.Text,STRPOS(Docum.Text,'@r')+2,1)=' ' THEN
+          BEGIN
+            DocT := COPYSTR(Docum.Text,STRPOS(Docum.Text,'@r')+3,16);
+          END ELSE BEGIN
+            DocT := COPYSTR(Docum.Text,STRPOS(Docum.Text,'@r')+2,16);
+          END;
+          Docum."User ID" := COPYSTR(DocT,7,3);
+          theday:=COPYSTR(DocT,15,2);
+          themonth:=COPYSTR(DocT,13,2);
+          theyear:=COPYSTR(DocT,11,2);
+          IF NOT EVALUATE(Date,theday+themonth+theyear) THEN
+          BEGIN
+            //MESSAGE(FORMAT(DocT));
+            COMMIT;
+            //ERROR(FORMAT(Docum."Object Type")+' '+FORMAT(Docum."Object No."));
+          END;
+          Docum.Date := Date;
+          //Check that we have USERID,Date and Mantis No
+          IF (FORMAT(Docum."User ID")='') OR (FORMAT(Docum.Date)='') OR (FORMAT(Docum."Change ID")='')
+          OR (NOT EVALUATE(TestID,Docum."Change ID"))THEN
+          BEGIN
+            //MESSAGE(Docum.Text);
+            COMMIT;
+            //ERROR('Missing information! '+FORMAT(Docum."Object Type")+' '+FORMAT(Docum."Object No."));
+          END;
+        END;
+
+
+      // IF ((Docum.Text[1] = 'S') AND (Docum.Text[2] = 'D')) OR
+      //    ((Docum.Text[1] = 'S') AND (Docum.Text[2] = 'P')) OR
+      //    ((Docum.Text[1] = 'S') AND (Docum.Text[2] = 'W')) OR
+      //    ((Docum.Text[1] = 'S') AND (Docum.Text[2] = 'M')) OR
+      //    ((Docum.Text[1] = 'A') AND (Docum.Text[2] = 'B') AND (Docum.Text[3] = 'S')) OR
+      //    ((Docum.Text[1] = 'R') AND (Docum.Text[2] = 'O') AND (Docum.Text[3] = 'S')) OR
+      //    ((Docum.Text[1] = 'S') AND (Docum.Text[2] = 'A') AND (Docum.Text[3] = 'S'))
+      // THEN BEGIN
+      //   IsOur := TRUE;
+      //   IF STRPOS(Docum.Text,' ') > 0 THEN
+      //     ModNo := COPYSTR(Docum.Text,1,STRPOS(Docum.Text,' '))
+      //  ELSE
+      //     ModNo := Docum.Text;
+      //   Docum."Modification No." := '';
+      // END;
+      // IF IsOur THEN
+         Docum.INSERT(TRUE);
+      END;
+    END;
+
+    PROCEDURE UpdateObjectStore@1100409004(TyObj@1100409000 : Integer;NoObj@1100409001 : Integer);
+    VAR
+      ObjectStore@1000000002 : Record 71003;
+      n@1000000001 : Decimal;
+      m@1000000000 : Decimal;
+      ObjectStoreBis@1100409002 : Record 71003;
+    BEGIN
+      //Docum.DELETEALL;
+      //++@r W1IBM.VTI-150302 @v 9750 @m 1
+      IF GUIALLOWED THEN
+      //--@r W1IBM.VTI-150302 @v 9750 @m 1
+        Win.OPEN('Obect Name #1############\Obect No.  #2############\  @3@@@@@@@@@@@@@@@@@@@@');
+      m := 0;
+      IF TyObj<>0 THEN
+        ObjectStore.SETFILTER(Type,'=%1',TyObj);
+      //++@r W1IBM.VTI-150302 @v 9750 @m 1
+      //IF NoObj<>0 THEN
+      //  ObjectStore.SETFILTER(ID,'=%1',NoObj);
+      IF NoObj<>0 THEN BEGIN
+        ObjectStore.SETFILTER(ID,'=%1',NoObj);
+      END ELSE BEGIN
+        DeliveryMgtSetupDM.GET;
+        IF DeliveryMgtSetupDM."Fake Objects Exlcude Filter" <> '' THEN
+          ObjectStore.SETFILTER(ID,DeliveryMgtSetupDM."Fake Objects Exlcude Filter");
+      END;
+      //--@r W1IBM.VTI-150302 @v 9750 @m 1
+
+      //++@r W1IBM.SAL-180418 @v 17262 @m 1
+      DeliveryMgtSetupDM.GET;
+      //--@r W1IBM.SAL-180418 @v 17262 @m 1
+
+      ObjectStore.LOCKTABLE;
+      ObjectStore.SETCURRENTKEY(UpToDate);
+      ObjectStore.SETRANGE(UpToDate,FALSE);
+
+      IF ObjectStore.FINDSET THEN BEGIN
+        n := ObjectStore.COUNT;
+        REPEAT
+          // DELETE THE Documentation linked
+          Docum.LOCKTABLE;
+          Docum.SETCURRENTKEY("Object Type","Object No.","Database Code");
+          Docum.SETRANGE("Object Type",ObjectStore.Type);
+          Docum.SETRANGE("Object No.",ObjectStore.ID);
+          Docum.SETRANGE("Database Code",ObjectStore."Database Code");
+          Docum.DELETEALL;
+          //++@r W1IBM.VTI-150302 @v 9750 @m 1
+          IF GUIALLOWED THEN BEGIN
+          //--@r W1IBM.VTI-150302 @v 9750 @m 1
+            Win.UPDATE(1,ObjectStore.Name);
+            Win.UPDATE(2,ObjectStore.ID);
+            Win.UPDATE(3,ROUND(m / n * 10000,1,'='));
+          //++@r W1IBM.VTI-150302 @v 9750 @m 1
+          END;
+          //--@r W1IBM.VTI-150302 @v 9750 @m 1
+          IsOur := FALSE;
+          ShowObjectStoreDoc(ObjectStore);
+          m += 1;
+          CLEAR(ObjectStoreBis);
+          IF ObjectStoreBis.GET(ObjectStore.Type,ObjectStore."Company Name",ObjectStore.ID,ObjectStore."Database Code") THEN BEGIN
+            ObjectStoreBis.UpToDate:=TRUE;
+            ObjectStoreBis.MODIFY;
+          END;
+        UNTIL ObjectStore.NEXT = 0;
+      END;
+      //++@r W1IBM.VTI-150302 @v 9750 @m 1
+      IF GUIALLOWED THEN
+      //--@r W1IBM.VTI-150302 @v 9750 @m 1
+        Win.CLOSE;
+    END;
+
+    PROCEDURE ShowObjectStoreDoc@1100409006(ObjectStore@1000000000 : Record 71003);
+    VAR
+      TextTemp@1000 : Text;
+      File1@1001 : File;
+      Line@1002 : Text[1024];
+    BEGIN
+      //RHU -> COMMENTED ALL CODE BECAUSE CHANGE @r W1IBM.MFA-160915 @v 14407 @m 1 DOESN'T MAKE SENSE!!
+      {
+      ObjectStore.CALCFIELDS("BLOB Reference");
+      //++@r W1IBM.MFA-160915 @v 14407 @m 1
+      //File1.CREATE('Computer\Z on SCTX0042');
+      ObjectStore."BLOB Reference".CREATEINSTREAM(InStr);
+      WHILE NOT InStr.EOS DO BEGIN
+        InStr.READTEXT(Line);
+        MESSAGE(Line);
+        File1.WRITE(Line);
+      END;
+      File1.CLOSE;
+
+
+      // ObjectStore."BLOB Reference".CREATEINSTREAM(InStr);
+      // //xxx
+      // TextTemp := 'teste.bin';
+      // FILE.DOWNLOADFROMSTREAM(InStr,'teste','C:\Users\moraifab.ext\Documents\','',TextTemp);
+      // //xxx
+      // //++@r W1IBM.CPA-150408 @v 9750 @m 1
+      // //FindObjectStoreDoc(ObjectStore,'c:\temp\obj.bin',ObjectStore.ID,ObjectStore.Type);
+      // DeliveryMgtSetupDM.GET;
+      // IF DeliveryMgtSetupDM."Read Doc. Temp File Name" <> '' THEN
+      //  FindObjectStoreDoc(ObjectStore,'c:\temp\' + DeliveryMgtSetupDM."Read Doc. Temp File Name" +'.bin',ObjectStore.ID,ObjectStore.Type)
+      // ELSE
+      //  ERROR(Text001);
+      // //--@r W1IBM.CPA-150408 @v 9750 @m 1
+      //--@r W1IBM.MFA-160915 @v 14407 @m 1
+      }
+
+      ObjectStore.CALCFIELDS("BLOB Reference");
+      ObjectStore."BLOB Reference".CREATEINSTREAM(InStr);
+      //++@r W1IBM.CPA-150408 @v 9750 @m 1
+      //FindObjectStoreDoc(ObjectStore,'c:\temp\obj.bin',ObjectStore.ID,ObjectStore.Type);
+      //++@r W1IBM.SAL-180418 @v 17262 @m 1
+      //DeliveryMgtSetupDM.GET;
+      ObjectStore.CALCFIELDS("BLOB Procedure");
+      //--@r W1IBM.SAL-180418 @v 17262 @m 1
+      IF DeliveryMgtSetupDM."Read Doc. Temp File Name" <> '' THEN BEGIN
+        //++@r W1IBM.SAL-180418 @v 17262 @m 1
+        //FindObjectStoreDoc(ObjectStore,'c:\temp\' + DeliveryMgtSetupDM."Read Doc. Temp File Name" +'.bin',ObjectStore.ID,ObjectStore.Type);
+        //++@r W1IBM.SAL-180418 @v 19414 @m 1
+        IF ObjectStore.Type = ObjectStore.Type::StoredProcedure THEN
+          UpdateMANTISTagsForStoredProcedures(ObjectStore)
+        ELSE BEGIN
+        //--@r W1IBM.SAL-180418 @v 19414 @m 1
+          UpdateMANTISTagsForFOB(ObjectStore);
+        //--@r W1IBM.SAL-180418 @v 17262 @m 1
+        END;
+      END ELSE
+        ERROR(Text001);
+      //--@r W1IBM.CPA-150408 @v 9750 @m 1
+    END;
+
+    PROCEDURE FindObjectStoreDoc@1100409007(vObjectStore@1000000002 : Record 71003;FileName@1000000008 : Text[250];IDNo@1000000011 : Integer;IDType@1000000012 : 'TableData,Table,Form,Report,Dataport,Codeunit,XMLport,MenuSuite,Page,Query');
+    VAR
+      DWORD@1000000006 : Text[4];
+      DocLine@1000000004 : Text[1024];
+      CodeFind@1000000009 : Boolean;
+      IntType@1000000017 : Boolean;
+      TextType@1000000018 : Boolean;
+      Text1@1000000019 : Text[1];
+      i@1000000000 : Integer;
+      NotText@1000000001 : Boolean;
+    BEGIN
+      NotText := TRUE;
+      IntType := FALSE;
+      TextType := FALSE;
+      DocLine := '';
+      //++@r W1IBM.CSO-170317 @v 17262 @m 1
+      //IF NOT MoveToDocBlock2 THEN
+      IF NOT MoveToDocBlock3 THEN
+        EXIT;
+      //--@r W1IBM.CSO-170317 @v 17262 @m 1
+      WHILE TRUE DO BEGIN
+        IF GetNextDWORD2(DWORD) THEN
+          EXIT;
+
+        CodeFind := FALSE;
+        IF DWORD[2] = 101 THEN
+          CASE DWORD[1] OF
+            23{17 65}:
+              IF IntType OR TextType THEN BEGIN
+                IF DocLine <> '' THEN
+                  InsertObjectStoreDocLine(vObjectStore,IDNo,IDType,COPYSTR(DocLine,1,200));
+                DocLine := '';
+                InsertObjectStoreDocLine(vObjectStore,IDNo,IDType,COPYSTR(DocLine,1,200));
+                EXIT;
+              END;
+            24{18 65}:
+              BEGIN
+                InsertObjectStoreDocLine(vObjectStore,IDNo,IDType,COPYSTR(DocLine,1,200));
+                DocLine := '';
+                CodeFind := TRUE;
+                NotText := TRUE;
+              END;
+            115{73 65}:
+              BEGIN
+                IntType := FALSE;
+                TextType := TRUE;
+                CodeFind := TRUE;
+                NotText := FALSE;
+              END;
+            116{74 65}:
+              IF NotText THEN BEGIN
+                IntType := TRUE;
+                TextType := FALSE;
+                CodeFind := TRUE;
+                NotText := FALSE;
+              END;
+          END;
+
+        IF NOT CodeFind THEN
+          FOR i := 1 TO 4 DO
+            CASE DWORD[i] OF
+              0,1:
+                BEGIN
+                  IF (IntType AND (DocLine <> '') AND NOT CodeFind) THEN BEGIN
+                    InsertObjectStoreDocLine(vObjectStore,IDNo,IDType,COPYSTR(DocLine,1,200));
+                    DocLine := '';
+                  END;
+                  IF (DWORD[i] = 0) THEN
+                    CodeFind := TRUE;
+                END;
+              ELSE
+                BEGIN
+                  IF (((IntType AND (DWORD[i] IN ['0'..'9'])) OR TextType) AND NOT CodeFind) THEN
+                  BEGIN
+                    Text1[1] := DWORD[i];
+                    IF Text1[1] < ' ' THEN
+                      Text1[1] := ' ';
+                    IF STRLEN(DocLine) < 1000 THEN
+                    DocLine := DocLine + Text1;
+                  END;
+                END;
+            END;
+      END;
+    END;
+
+    PROCEDURE InsertObjectStoreDocLine@1100409008(vObjectStore@1000000008 : Record 71003;IDNo@1000000001 : Integer;IDType@1000000000 : 'TableData,Table,Form,Report,Dataport,Codeunit,XMLport,MenuSuite,Page,Query';DocT@1000000003 : Text[200]);
+    VAR
+      Date@1000000007 : Date;
+      TempText@1000000006 : Text[250];
+      ChangeID@1000000005 : Text[250];
+      i@1000000004 : Integer;
+      Processed@1000000002 : Boolean;
+      TestID@1100409000 : Integer;
+      ModificationID@1100409001 : Text[30];
+    BEGIN
+      IF DocT <> '' THEN BEGIN
+        Docum.INIT;
+        Docum."Object Type" := IDType;
+        Docum."Object No." := IDNo;
+        Docum."Object Name" := vObjectStore.Name;
+        Docum."Database Code" := vObjectStore."Database Code";
+        Docum.Text := DocT;
+        //++@r W1IBM.AKH-130423 @v 4093
+        IF STRPOS(Docum.Text,'@v') > 0 THEN BEGIN
+          ChangeID := '';
+          TempText := COPYSTR(Docum.Text,STRPOS(Docum.Text,'@v'),STRLEN(Docum.Text) - STRPOS(Docum.Text,'@v')+1);
+          TempText := DELSTR(TempText,1,2);
+          i := 1;
+          Processed := FALSE;
+          REPEAT
+            IF TempText[i] = ' ' THEN BEGIN
+              IF STRLEN(ChangeID) > 0 THEN
+                Processed := TRUE
+            END ELSE BEGIN
+              IF TempText[i] = '@' THEN
+                Processed := TRUE
+              ELSE
+                ChangeID += FORMAT(TempText[i]);
+            END;
+
+            i += 1;
+            IF i > STRLEN(TempText) THEN
+              Processed := TRUE;
+          UNTIL Processed;
+          Docum."Change ID" := ChangeID;
+        END;
+        Docum."Modify DateTime" := CURRENTDATETIME;
+        //--@r W1IBM.AKH-130423 @v 4093
+        //++@r W1IBM.VTI-150302 @v 9750 @m 1
+        //Docum."Modification No." := ModNo;
+        IF STRPOS(Docum.Text,'@m') > 0 THEN BEGIN
+          ModificationID := '';
+          TempText := COPYSTR(Docum.Text,STRPOS(Docum.Text,'@m'),STRLEN(Docum.Text) - STRPOS(Docum.Text,'@m')+1);
+          TempText := DELSTR(TempText,1,2);
+          i := 1;
+          Processed := FALSE;
+          REPEAT
+            IF TempText[i] = ' ' THEN BEGIN
+              IF STRLEN(ModificationID) > 0 THEN
+                Processed := TRUE
+            END ELSE BEGIN
+              IF TempText[i] = '@' THEN
+                Processed := TRUE
+              ELSE
+                ModificationID += FORMAT(TempText[i]);
+            END;
+
+            i += 1;
+            IF i > STRLEN(TempText) THEN
+              Processed := TRUE;
+          UNTIL Processed;
+          Docum."Modification No." := ModificationID;
+        END;
+        //--@r W1IBM.VTI-150302 @v 9750 @m 1
+
+        IF (STRPOS(Docum.Text,'@r') > 0) THEN BEGIN
+          IF COPYSTR(Docum.Text,STRPOS(Docum.Text,'@r')+2,1)=' ' THEN
+          BEGIN
+            DocT := COPYSTR(Docum.Text,STRPOS(Docum.Text,'@r')+3,16);
+          END ELSE BEGIN
+            DocT := COPYSTR(Docum.Text,STRPOS(Docum.Text,'@r')+2,16);
+          END;
+          Docum."User ID" := COPYSTR(DocT,7,3);
+          theday:=COPYSTR(DocT,15,2);
+          themonth:=COPYSTR(DocT,13,2);
+          theyear:=COPYSTR(DocT,11,2);
+          IF NOT EVALUATE(Date,theday+themonth+theyear) THEN
+          BEGIN
+            //MESSAGE(FORMAT(DocT));
+            COMMIT;
+            //ERROR(FORMAT(Docum."Object Type")+' '+FORMAT(Docum."Object No."));
+          END;
+          Docum.Date := Date;
+          //Check that we have USERID,Date and Mantis No
+          IF (FORMAT(Docum."User ID")='') OR (FORMAT(Docum.Date)='') OR (FORMAT(Docum."Change ID")='')
+          OR (NOT EVALUATE(TestID,Docum."Change ID"))THEN
+          BEGIN
+            //MESSAGE(Docum.Text);
+            COMMIT;
+            //ERROR('Missing information! '+FORMAT(Docum."Object Type")+' '+FORMAT(Docum."Object No."));
+          END;
+        END;
+
+
+      // IF ((Docum.Text[1] = 'S') AND (Docum.Text[2] = 'D')) OR
+      //    ((Docum.Text[1] = 'S') AND (Docum.Text[2] = 'P')) OR
+      //    ((Docum.Text[1] = 'S') AND (Docum.Text[2] = 'W')) OR
+      //    ((Docum.Text[1] = 'S') AND (Docum.Text[2] = 'M')) OR
+      //    ((Docum.Text[1] = 'A') AND (Docum.Text[2] = 'B') AND (Docum.Text[3] = 'S')) OR
+      //    ((Docum.Text[1] = 'R') AND (Docum.Text[2] = 'O') AND (Docum.Text[3] = 'S')) OR
+      //    ((Docum.Text[1] = 'S') AND (Docum.Text[2] = 'A') AND (Docum.Text[3] = 'S'))
+      // THEN BEGIN
+      //   IsOur := TRUE;
+      //   IF STRPOS(Docum.Text,' ') > 0 THEN
+      //     ModNo := COPYSTR(Docum.Text,1,STRPOS(Docum.Text,' '))
+      //  ELSE
+      //     ModNo := Docum.Text;
+      //   Docum."Modification No." := '';
+      // END;
+      // IF IsOur THEN
+        //++@r W1IBM.VTI-150302 @v 9750 @m 1
+        IF EVALUATE(Docum."Mantis ID",Docum."Change ID") THEN ;
+        //--@r W1IBM.VTI-150302 @v 9750 @m 1
+
+        IF Docum."Change ID" <> '' THEN
+          Docum.INSERT(TRUE);
+      END;
+    END;
+
+    PROCEDURE DeleteRecFromRemovedObj@1100409005();
+    VAR
+      DocOneNavDM@1100409000 : Record 71004;
+      ObjectStore@1100409001 : Record 71003;
+      lDatabaseDM@1000000000 : Record 71000;
+      lTotalRecordsNo@1100409002 : Integer;
+      lCurrRecordNo@1100409003 : Integer;
+      lWin@1100409004 : Dialog;
+    BEGIN
+      //++ @r W1IBM.VTI-150302 @v 9750 @m1
+      CLEAR(DocOneNavDM);
+      IF DocOneNavDM.ISEMPTY THEN
+        EXIT;
+
+      IF GUIALLOWED THEN BEGIN
+        lWin.OPEN('Checking Objects\@1@@@@@@@@@@@@@@@@@@@@');
+        lTotalRecordsNo := DocOneNavDM.COUNT;
+        lCurrRecordNo := 0;
+      END;
+      DocOneNavDM.FINDSET;
+      //++@r W1IBM.SAL-181121 @v 22508 @m 1
+      lDatabaseDM.SETRANGE("V0/V1",lDatabaseDM."V0/V1"::V2);
+      //--@r W1IBM.SAL-181121 @v 22508 @m 1
+      REPEAT
+        IF GUIALLOWED THEN BEGIN
+          IF lCurrRecordNo MOD 100 = 0 THEN
+            lWin.UPDATE(1,ROUND(lCurrRecordNo /lTotalRecordsNo * 10000,1,'='));
+        END;
+        //++@r W1IBM.SAL-181121 @v 22508 @m 1
+        lDatabaseDM.SETRANGE(Code,DocOneNavDM."Database Code");
+        IF NOT lDatabaseDM.ISEMPTY THEN
+        //--@r W1IBM.SAL-181121 @v 22508 @m 1
+          IF NOT ObjectStore.GET(DocOneNavDM."Object Type",'',DocOneNavDM."Object No.",DocOneNavDM."Database Code") THEN BEGIN
+            DocOneNavDM.DELETE;
+          END;
+        lCurrRecordNo := lCurrRecordNo + 1;
+      UNTIL DocOneNavDM.NEXT = 0;
+      IF GUIALLOWED THEN
+       lWin.CLOSE;
+      //-- @r W1IBM.VTI-150302 @v 9750 @m1
+    END;
+
+    LOCAL PROCEDURE UpdateMANTISTagsForStoredProcedures@1000000023(pObjectsStore@1000000000 : Record 71003);
+    VAR
+      AlterText@1000000001 : TextConst 'ENU=Alter';
+      lDocumentationOneNavDM@1000000002 : Record 71004;
+      lFileManagement@1000000004 : Codeunit 419;
+      lBodySectionReached@1000000003 : Boolean;
+      lPosition@1000000012 : Integer;
+      lPathServer@1000000009 : Text;
+      lValue@1000000013 : Text;
+      lCellValue@1000000014 : Text;
+      lString@1000000006 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.String";
+      lLineSeparator@1000000008 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.String";
+      lValuesArray@1000000005 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.Array";
+      lStringArray@1000000007 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.Array";
+      lFileDotNET@1000000011 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.IO.File";
+      lEncodin@1000000010 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.Text.Encoding";
+    BEGIN
+      //++@r W1IBM.SAL-180418 @v 19414 @m 1
+      lLineSeparator := '@';
+
+      lPathServer := lFileManagement.ServerTempFileName('txt');
+      pObjectsStore."BLOB Procedure".EXPORT(lPathServer);
+
+      //the file must be loaded from disk with the proper encoding
+      lStringArray := lFileDotNET.ReadAllLines(lPathServer,lEncodin.Unicode);
+
+      lFileManagement.DeleteServerFile(lPathServer);
+
+      FOREACH lString IN lStringArray DO BEGIN
+        CLEAR(lValuesArray);
+        lValue := lString;
+
+        //search for relevant lines
+        IF NOT lBodySectionReached THEN
+          lBodySectionReached := lString.IndexOf('++@r') > 0;
+
+        IF NOT lBodySectionReached THEN
+          lPosition := lString.IndexOf('//* @r')
+        ELSE BEGIN
+            lPosition := lString.IndexOf('++@r');
+            IF lPosition < 0 THEN
+              lPosition := lString.IndexOf('--@r');
+        END;
+
+        IF lPosition > 0 THEN BEGIN
+          lString := lString.Substring(lPosition);
+          lValuesArray := lString.Split(lLineSeparator.ToCharArray);
+        END;
+
+        //insert documentation line
+        IF NOT ISNULL(lValuesArray) THEN BEGIN
+          //ignore old comment lines with different structures
+          IF lValuesArray.Length >= 4 THEN BEGIN
+            lDocumentationOneNavDM.INIT;
+            lDocumentationOneNavDM."Object Type" := lDocumentationOneNavDM."Object Type"::StoredProcedure;
+            lDocumentationOneNavDM."Object No." := pObjectsStore.ID;
+            lDocumentationOneNavDM."Object Name" := pObjectsStore.Name;
+            lDocumentationOneNavDM."Database Code" := pObjectsStore."Database Code";
+            lDocumentationOneNavDM.Text := COPYSTR(lString,STRPOS(lString,lLineSeparator),250);
+
+            FOREACH lCellValue IN lValuesArray DO
+              IF STRLEN(lCellValue) > 1 THEN
+                CASE UPPERCASE(COPYSTR(lCellValue,1,1)) OF
+                  'M':
+                    lDocumentationOneNavDM."Modification No." := DELCHR(lCellValue,'=',DELCHR(lCellValue,'=','0123456789'));
+                  'V':
+                    lDocumentationOneNavDM."Change ID" := DELCHR(lCellValue,'=',DELCHR(lCellValue,'=','0123456789'));
+                  'R':
+                    BEGIN
+                      lDocumentationOneNavDM."User ID" := COPYSTR(lCellValue,STRPOS(lCellValue,'.') + 1,3);
+                      lDocumentationOneNavDM.Date := CalculateDateFromStringYYMMDD(COPYSTR(lCellValue,STRPOS(lCellValue,'-') + 1));
+                    END;
+                END;
+
+            lDocumentationOneNavDM."Modify DateTime" := CURRENTDATETIME;
+            IF EVALUATE(lDocumentationOneNavDM."Mantis ID",lDocumentationOneNavDM."Change ID") THEN;
+            IF lBodySectionReached THEN
+              lDocumentationOneNavDM."Line Type" := lDocumentationOneNavDM."Line Type"::Code
+            ELSE
+              lDocumentationOneNavDM."Line Type" := lDocumentationOneNavDM."Line Type"::Documentation;
+
+            IF lDocumentationOneNavDM."Change ID" <> '' THEN
+              //insert trigger has no transactions with the DB
+              IF NOT lDocumentationOneNavDM.INSERT(TRUE) THEN BEGIN
+                COMMIT;
+                ERROR(GETLASTERRORTEXT);
+              END;
+          END;
+        END;
+      END;
+      //--@r W1IBM.SAL-180418 @v 19414 @m 1
+    END;
+
+    PROCEDURE UpdateMANTISTagsForFOB@1000000010(VAR pObjectsStore@1000000000 : Record 71003);
+    VAR
+      AlterText@1000000001 : TextConst 'ENU=Alter';
+      lDocumentationOneNavDM@1000000002 : Record 71004;
+      lFileManagement@1000000004 : Codeunit 419;
+      lDocumentationSectionReached@1000000017 : Boolean;
+      lDocumentationSectionEnded@1000000008 : Boolean;
+      lCodeSectionReached@1000000026 : Boolean;
+      lNullPosition@1000000028 : Integer;
+      lPosition@1000000018 : Integer;
+      lSePosition@1000000012 : Integer;
+      lNullSeparator@1000000027 : Char;
+      lCharS@1000000029 : Char;
+      lCharE@1000000032 : Char;
+      lNullSE@1000000031 : Text;
+      lEndOfTransactionBlock@1000000030 : Text;
+      lPathServer@1000000009 : Text;
+      lEndOfTransmissionSeparator@1000000015 : Text;
+      lLine@1000000023 : Text;
+      lCellValue@1000000019 : Text;
+      lNullString@1000000016 : Text;
+      lFOBLineString@1000000014 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.String";
+      lString@1000000006 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.String";
+      lValueSeparator@1000000022 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.String";
+      lEndOfTransmissionSeparatorString@1000000003 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.String";
+      lStringMultipleComnments@1000000021 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.String";
+      lValuesArray@1000000005 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.Array";
+      lFOBLineArray@1000000013 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.Array";
+      lStringArray@1000000007 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.Array";
+      lMultipleCommentsArray@1000000020 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.Array";
+      lFileDotNET@1000000011 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.IO.File";
+      lEncodin@1000000010 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.Text.Encoding";
+      lType@1000000025 : DotNet "'mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'.System.Type";
+      lRegex@1000000024 : DotNet "'System.Web.RegularExpressions, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a'.System.Web.RegularExpressions.TextRegex";
+    BEGIN
+      //++@r W1IBM.SAL-180418 @v 17262 @m 1
+      lValueSeparator := '@';
+      lNullSeparator := 0;
+      lCharS := 115;
+      lCharE := 101;
+      lNullSE := FORMAT(lNullSeparator) + FORMAT(lCharS) + FORMAT(lCharE);
+      lEndOfTransmissionSeparator[1] := 4;
+      lEndOfTransactionBlock[1] := 23;
+      lEndOfTransmissionSeparatorString := lEndOfTransmissionSeparator;
+
+      lPathServer := lFileManagement.ServerTempFileName('txt');
+      pObjectsStore."BLOB Reference".EXPORT(lPathServer);
+
+      //the file must be read from memory with proper encoding
+      lFOBLineArray := lFileDotNET.ReadAllLines(lPathServer,lEncodin.ASCII);
+
+      lFileManagement.DeleteServerFile(lPathServer);
+
+      FOREACH lFOBLineString IN lFOBLineArray DO BEGIN
+        //FOB file composed of transactions delimited by the EOT character
+        lStringArray := lFOBLineString.Split(lEndOfTransmissionSeparatorString.ToCharArray);
+        FOREACH lString IN lStringArray DO BEGIN
+          //search for relevant lines
+          CASE TRUE OF
+            NOT lDocumentationSectionReached:
+              BEGIN
+                //++@r W1IBM.SAL-180920 @v 23572 @m 1
+                //lDocumentationSectionReached := (lString.IndexOf('* @r') >= 0) AND (lString.IndexOf('se') = 1)
+                lSePosition := lString.IndexOf(lNullSE);
+                IF (lSePosition >= 0) THEN
+                  lPosition := lString.IndexOf('@v')
+                ELSE
+                  lPosition := lString.IndexOf('@r');
+                lDocumentationSectionReached := (lPosition > 0) AND (lSePosition >= 0) AND (lSePosition < lPosition);
+                //--@r W1IBM.SAL-180920 @v 23572 @m 1
+              END;
+            NOT lDocumentationSectionEnded:
+              BEGIN
+                //++@r W1IBM.SAL-180920 @v 23572 @m 1
+                //lCodeSectionReached := (lString.IndexOf('++@r') >= 0) AND (lString.IndexOf('se') < 1);
+                //++@r W1IBM.SAL-180926 @v 17262 @m 2
+                lPosition := lString.IndexOf('@v');
+                lDocumentationSectionEnded := lString.IndexOf(lEndOfTransactionBlock) > 0;
+                //lCodeSectionReached := (lStartPosition >= 0) AND ((lSePosition < 1));
+                //--@r W1IBM.SAL-180926 @v 17262 @m 2
+                //--@r W1IBM.SAL-180920 @v 23572 @m 1
+              END;
+            ELSE BEGIN
+              lCodeSectionReached := TRUE;
+              lPosition := lString.IndexOf('++@r');
+                IF lPosition < 0 THEN
+                  lPosition := lString.IndexOf('--@r');
+            END;
+          END;
+
+          IF  lPosition >= 0 THEN BEGIN
+            //try to eliminate unwnted ascii charracters
+            IF NOT lDocumentationSectionReached OR lCodeSectionReached THEN
+              lString := lString.Substring(lPosition)
+            ELSE
+              lString := lString.Substring(lString.IndexOf(lNullSE) + 5);
+            lNullPosition := lString.IndexOf(lNullSeparator);
+            IF (lNullPosition > 0) AND lDocumentationSectionReached THEN
+              lLine := lString.Substring(0,lNullPosition)
+            ELSE
+              lLine := lString;
+
+            IF NOT lDocumentationSectionReached THEN
+              //multiple tags per transaction are possible on field properties
+              lMultipleCommentsArray := lRegex.Split(lLine,'@r')
+            ELSE BEGIN
+              lMultipleCommentsArray := lMultipleCommentsArray.CreateInstance(lType.GetType('System.String'),1);
+              lMultipleCommentsArray.SetValue(lLine,0);
+            END;
+
+            FOREACH lStringMultipleComnments IN lMultipleCommentsArray DO BEGIN
+              IF NOT lDocumentationSectionReached THEN BEGIN
+                lStringMultipleComnments := lStringMultipleComnments.Insert(0,'@r');
+
+                //try to eliminate unwnted ascii charracters
+                lNullPosition := lStringMultipleComnments.IndexOf(lNullSeparator);
+                IF (lNullPosition > 0) THEN
+                  lStringMultipleComnments := lStringMultipleComnments.Substring(0,lNullPosition);
+              END;
+              lValuesArray := lStringMultipleComnments.Split(lValueSeparator.ToCharArray);
+
+              //insert documentation line
+              IF NOT ISNULL(lValuesArray) THEN BEGIN
+                WITH lDocumentationOneNavDM DO BEGIN
+                  INIT;
+                  "Object Type" := pObjectsStore.Type;
+                  "Object No." := pObjectsStore.ID;
+                  "Object Name" := pObjectsStore.Name;
+                  "Database Code" := pObjectsStore."Database Code";
+                  Text := COPYSTR(lStringMultipleComnments,1,250);
+
+                  FOREACH lCellValue IN lValuesArray DO
+                    IF STRLEN(lCellValue) > 1 THEN
+                      CASE UPPERCASE(COPYSTR(lCellValue,1,1)) OF
+                        'M':
+                          "Modification No." := DELCHR(lCellValue,'=',DELCHR(lCellValue,'=','0123456789'));
+                        'V':
+                          IF "Change ID" = '' THEN BEGIN
+                            "Change ID" := COPYSTR(DELCHR(lCellValue,'<',DELCHR(lCellValue,'=','1234567890')),1,50);
+                            IF NOT EVALUATE("Mantis ID","Change ID") THEN BEGIN
+                              "Change ID" := COPYSTR("Change ID",1,STRPOS("Change ID",DELCHR("Change ID",'<','1234567890')));
+                              IF EVALUATE("Mantis ID","Change ID") THEN;
+                            END;
+                          END;
+                        'R':
+                          BEGIN
+                            "User ID" := COPYSTR(lCellValue,STRPOS(lCellValue,'.') + 1,3);
+                            Date := CalculateDateFromStringYYMMDD(COPYSTR(lCellValue,STRPOS(lCellValue,'-') + 1));
+                          END;
+                      END;
+
+                  "Modify DateTime" := CURRENTDATETIME;
+
+                  IF lDocumentationSectionReached AND NOT lCodeSectionReached THEN
+                    "Line Type" := "Line Type"::Documentation
+                  ELSE
+                    "Line Type" := "Line Type"::Code;
+
+                  IF "Mantis ID" > 0 THEN
+                    //insert trigger has no transactions with the DB
+                    IF NOT INSERT(TRUE) THEN BEGIN
+                      COMMIT;
+                      ERROR(GETLASTERRORTEXT);
+                    END;
+                END;
+              END;
+            END;
+            CLEAR(lMultipleCommentsArray);
+          END;
+        END;
+      END;
+      //--@r W1IBM.SAL-180418 @v 17262 @m 1
+    END;
+
+    LOCAL PROCEDURE CalculateDateFromStringYYMMDD@1000000007(pDateText@1000000000 : Text) OutDate : Date;
+    BEGIN
+      //++@r W1IBM.SAL-180418 @v 17262 @m 1
+      pDateText := DELCHR(pDateText,'=',' ');
+      IF STRLEN(pDateText) = 6 THEN
+        IF NOT EVALUATE(OutDate,(COPYSTR(pDateText,5,2) + COPYSTR(pDateText,3,2) + '20' + COPYSTR(pDateText,1,2))) THEN
+          IF EVALUATE(OutDate,(COPYSTR(pDateText,3,2) + COPYSTR(pDateText,5,2) + '20' + COPYSTR(pDateText,1,2))) THEN;
+      //--@r W1IBM.SAL-180418 @v 17262 @m 1
+    END;
+
+    BEGIN
+    {
+      //* @r W1IBM.AKH-130423 @v 4093 @c Modify InsertDocLine function */
+      +----------------------------------------------------------------------------------------------------------------------------------+
+      //* @r W1IBM.BSA-140513 @v 7906 @s Technical Documentation auto-generated
+          @c  New Keys
+          @c    Object Type,Object No. */
+      +----------------------------------------------------------------------------------------------------------------------------------+
+      //* @r @r W1IBM.VTI-150302 @v 9750 @m 1 @s Delivery management tool
+          @c Changed Functions:
+            @c InsertExtDocLine
+              @c New Local Variables:
+                @c ModificationID
+            @c InsertDocLine
+              @c New Local Variables:
+                @c ModificationID
+            @c InsertObjectStoreDocLine
+              @c New Local Variables:
+                @c ModificationID
+          @c New Keys:
+            @c Change ID,Modification No.
+            @c Change ID,Modification No.,Database Code
+            @c Change ID,Modification No.,Object Type,Object No.
+          @c Object Renumber
+          @c New functions:
+            @c DeleteRecFromRemovedObj
+          @c New Fields:
+            @c Mantis ID */
+      +----------------------------------------------------------------------------------------------------------------------------------+
+      //* @r @r W1IBM.CPA-150408 @v 9750 @m 1 @s Delivery management tool
+          @c Changed Funtions:
+            @c ShowObjDoc2, ShowExtObjDoc, ShowObjectStoreDoc
+              @c Changed code to use new field from "Delivery Management Setup DM table"
+      +----------------------------------------------------------------------------------------------------------------------------------+
+      //* @r W1IBM.MFA-160915 @v 14407 @m 1 @s Migrate the Delivery Tool in NAV 2016
+          @c Upgrade Object
+      +----------------------------------------------------------------------------------------------------------------------------------+
+      //* @r W1IBM.CSO-170317 @v 17262 @m 1 @s Issue with delivery tool v2
+          @c New function
+            @c MoveToDocBlock3
+          @c Modified function
+            @c FindDoc2 */
+      +----------------------------------------------------------------------------------------------------------------------------------+
+      //* @r W1IBM.CSO-170324 @v 17262 @m 2 @s Issue with delivery tool v2
+          @c New field added
+            @c Database Version
+          @c Modified Trigger/Fucnction
+            @c OnInsert() */
+      +----------------------------------------------------------------------------------------------------------------------------------+
+      //* @r W1IBM.SAL-180418 @v 17262 @m 1 @s Issue with the delivery tool V2
+          @c Added new function
+            @c UpdateMANTISTagsForFOB
+            @c CalculateDateFromStringYYMMDD
+          @c Modified function
+            @c UpdateObjectStore
+            @c ShowObjectStoreDoc
+            @c DeleteRecFromRemovedObj */
+      +----------------------------------------------------------------------------------------------------------------------------------+
+      //* @r W1IBM.SAL-180920 @v 23572 @m 1 @s Issue on Count Documentation Trigger
+          @c Modified function
+            @c UpdateMANTISTagsForFOB */
+      +----------------------------------------------------------------------------------------------------------------------------------+
+      //* @r W1IBM.SAL-180418 @v 19414 @m 1 @s Release Tool - Store Proc check new functionallity
+          @c Added new function
+            @c UpdateMANTISTagsForStoredProcedures
+          @c Modified function
+            @c ShowObjectStoreDoc */
+      +----------------------------------------------------------------------------------------------------------------------------------+
+      //* @r W1IBM.SAL-181121 @v 22508 @m 1 @s Issue with the delivery tool V2
+          @c Modified function
+            @c DeleteRecFromRemovedObj */
+      +----------------------------------------------------------------------------------------------------------------------------------+
+    }
+    END.
+  }
+}
+
