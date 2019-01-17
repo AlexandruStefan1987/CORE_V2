@@ -5,7 +5,7 @@ OBJECT Table 71004 Documentation OneNav DM
     Date=21/11/18;
     Time=10:08:53;
     Modified=Yes;
-    Version List=DeliveryTool,DEV_V2;
+    Version List=DeliveryTool,DEV_V3;
   }
   PROPERTIES
   {
